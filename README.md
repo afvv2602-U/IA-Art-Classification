@@ -9,7 +9,7 @@ Bienvenidos al proyecto de final ingenieria de software de:
 
 Instalación del environment con conda **(Recomendacion)**
 
-* conda env create -f environment.yaml
+* conda env create -f Instalacion/environment.yaml
   * Esto crea un entorno virtual llamado IA_Art
   * En el cual se han instalado todas las dependencias necesarias para el proyecto
 * conda activate IA_Art ()
@@ -17,5 +17,5 @@ Instalación del environment con conda **(Recomendacion)**
 
 Si por el contrario  no tienes conda, puedes utilizar pip para la instalación de paquetes python:
 
-* pip install -r requirements.txt
+* pip install -r Instalacion/requirements.txt
   * Con este comando se van a instalar todos paquetes necesarios

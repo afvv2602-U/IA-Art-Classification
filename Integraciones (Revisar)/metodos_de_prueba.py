@@ -1,3 +1,5 @@
+from torchvision import transforms
+
 model = Net().to(device)
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.0) 
@@ -35,3 +37,10 @@ def load_dataset():
 from sklearn.model_selection import train_test_split
 def separar_dataset():
     x_train_procesado, x_val, y_train_procesado, y_val = train_test_split(x_train_procesado, y_train_procesado, test_size=0.2, random_state=42)
+
+    # Transformaciones para el entrenamiento y la validación
+transform = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+])

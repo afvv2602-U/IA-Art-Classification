@@ -1,71 +1,26 @@
-import os
-import io
 import pandas as pd
 import numpy as np
-from PIL import Image
-import matplotlib.pyplot as plt
-from datasets import load_dataset
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
-from torch.utils.data import Dataset
-from torchvision import transforms
-from torchvision.datasets import ImageFolder
-from torch.optim.lr_scheduler import StepLR
-import torchvision.models as models
-import Model.custom_data as  custom_data
+from torch.utils.data import DataLoader,TensorDataset
+from torchvision import models
+from datasets import load_dataset
+import Model.train_model as train_model
 
-def main():
-    train_df,validation_df,test_df = load_dataset()
-    device = torch_settings()
-
-def load_dataset():
+def load_datasets():
     # Cargar el dataset
     data = load_dataset("keremberke/painting-style-classification", name="full")
+
     # Convertir el subset de entrenamiento a DataFrame
     train_df = pd.DataFrame(data['train'])
     validation_df = pd.DataFrame(data['validation'])
     test_df = pd.DataFrame(data['test'])
     return train_df,validation_df,test_df
 
-def torch_settings():
-    torch.manual_seed(42)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-# Funcion de entrenamiento
-def train(model, device, train_loader, criterion, optimizer, epoch):
-    model.train()
-    for batch_idx, (data, target) in enumerate(train_loader):
-        data, target = data.to(device), target.to(device)
-        optimizer.zero_grad()
-        output = model(data)
-        loss = criterion(output, target)
-        loss.backward()
-        optimizer.step()
-        if batch_idx % 10 == 0:
-            print(f'Train Epoch: {epoch} [{batch_idx * len(data)}/{len(train_loader.dataset)} ({100. * batch_idx / len(train_loader):.0f}%)]\tLoss: {loss.item():.6f}')
-
-# Funcion de validacion
-def validation(model, device, val_loader, criterion):
-    model.eval()
-    val_loss = 0
-    correct = 0
-    with torch.no_grad():
-        for data, target in val_loader:
-            data, target = data.to(device), target.to(device)
-            output = model(data)
-            val_loss += criterion(output, target).item()  # sum up batch loss
-            pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
-            target = target.argmax(dim=1, keepdim=True)
-            correct += pred.eq(target).sum().item()
-
-    val_loss /= len(val_loader.dataset)
-    print(f'\nTest set: Average loss: {val_loss:.4f}, Accuracy: {correct}/{len(val_loader.dataset)} ({100. * correct / len(val_loader.dataset):.0f}%)\n')
-
 def prepare_train(train_df):
     y_train = train_df.iloc[:,0].values
-    x_train = train_df.iloc[:, 1].values
+    x_train = train_df.iloc[:,1].values
 
     # Tamaño deseado para las imágenes
     tamaño_deseado = (224, 224)
@@ -84,8 +39,8 @@ def prepare_train(train_df):
         # Normalizar los valores de píxeles
         imagen_np = imagen_np.astype('float32') / 255.0
 
-        # Añadir la imagen procesada a la lista
         imagenes_procesadas.append(imagen_np)
+        # Añadir la imagen procesada a la lista
 
     labels = ['Abstract_Expressionism', 'Action_painting', 'Analytical_Cubism', 'Art_Nouveau_Modern',
             'Baroque', 'Color_Field_Painting', 'Contemporary_Realism', 'Cubism', 'Early_Renaissance',
@@ -98,7 +53,7 @@ def prepare_train(train_df):
     filtered_labels = []
 
     for path in y_train:
-        label = path.split('/')[8]  # Ajusta el índice según tu estructura de ruta
+        label = path.split('/')[9]
         if label in labels:
             filtered_labels.append(label_to_index[label])
 
@@ -143,7 +98,7 @@ def prepare_validation(validation_df):
     filtered_labels = []
 
     for path in y_val:
-        label = path.split('/')[8]  # Ajusta el índice según tu estructura de ruta
+        label = path.split('/')[9]
         if label in labels:
             filtered_labels.append(label_to_index[label])
 
@@ -153,41 +108,53 @@ def prepare_validation(validation_df):
 
     return x_val_procesado,y_val_procesado
 
-def image_transpose(x_train_procesado,x_val_procesado):
-    x_train_procesado = x_train_procesado.transpose((0, 3, 1, 2))
-    x_val_procesado = x_val_procesado.transpose((0, 3, 1, 2))
+def create_tensors_dataloader(x_train,y_train,x_val,y_val):  
+    # Crear los tensores de las imagenes y las labels
+    train_images = torch.from_numpy(x_train.transpose((0, 3, 1, 2))).float()
+    valid_images = torch.from_numpy(x_val.transpose((0, 3, 1, 2))).float()
+    train_labels = torch.tensor(y_train, dtype=torch.long)
+    valid_labels = torch.tensor(y_val, dtype=torch.long)
 
-    return  x_train_procesado,x_val_procesado
+    # Crear los DataSet de los tensores
+    train_data = TensorDataset(train_images, train_labels)
+    valid_data = TensorDataset(valid_images, valid_labels)
 
-def tensor_transform(x_train_procesado,y_train_procesado,x_val_procesado,y_val_procesado):
-    train_dataset = custom_data.CustomDataset(x_train_procesado, y_train_procesado)
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=64,shuffle=True)
+    # Crear el Dataloader para entrenamiento y validación
+    train_loader = DataLoader(train_data, batch_size=64, shuffle=True)
+    valid_loader = DataLoader(valid_data, batch_size=64, shuffle=True)
 
-    val_dataset = custom_data.CustomDataset(x_val_procesado, y_val_procesado)
-    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=64)
-    return  train_loader,val_loader
+    return  train_loader,valid_loader
 
-def train_model(device,train_loader,val_loader):
-    model = models.mobilenet_v2(pretrained=True)
+def main():
+    # Configuración del dispositivo
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
+    # Carga del dataset
+    train_df,validation_df,test_df = load_datasets()
+    
+    # Preparación de los datos
+    x_train, y_train = prepare_train(train_df)
+    x_val, y_val = prepare_validation(validation_df)
 
-    # Obtenemos los parametros y hacemos que no sean actualizables por el gradiente
+    # Cambiar distribucion  de las imágenes a tensor y normalizarlas
+    train_loader,valid_loader = create_tensors_dataloader(x_train,y_train,x_val,y_val)
+    
+    # Selección y preparación del modelo
+    model = models.resnet50(pretrained=True)
     for param in model.parameters():
         param.requires_grad = False
-
-    for param in model.features[15].parameters():
-        param.requires_grad = True
-
-    model.classifier[1] = nn.Linear(model.last_channel, 27)
+    num_ftrs = model.fc.in_features
+    model.fc = nn.Linear(num_ftrs, 27)  # Ajuste para 27 clases
     model.to(device)
-
+    
+    # Configuración del optimizador y el criterio
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters())
-
+    optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
+    
+    # Entrenamiento y validación del modelo
     for epoch in range(1, 6):
-        train(model, device, train_loader, criterion, optimizer, epoch)
-        validation(model, device, val_loader, criterion)
-
-    return model
+        train_model.train(model, device, train_loader, criterion, optimizer, epoch)
+        train_model.validation(model, device, valid_loader, criterion)
 
 if __name__ == "__main__":
     main()

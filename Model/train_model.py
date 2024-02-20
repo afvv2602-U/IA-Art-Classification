@@ -1,3 +1,5 @@
+import torch
+
 def train(model, device, train_loader, criterion, optimizer, epoch):
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
@@ -20,8 +22,7 @@ def validation(model, device, val_loader, criterion):
             output = model(data)
             val_loss += criterion(output, target).item()  # sum up batch loss
             pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
-            target = target.argmax(dim=1, keepdim=True)
-            correct += pred.eq(target).sum().item()
+            correct += pred.eq(target.view_as(pred)).sum().item()
 
     val_loss /= len(val_loader.dataset)
     print(f'\nTest set: Average loss: {val_loss:.4f}, Accuracy: {correct}/{len(val_loader.dataset)} ({100. * correct / len(val_loader.dataset):.0f}%)\n')
