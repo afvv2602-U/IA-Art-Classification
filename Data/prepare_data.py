@@ -1,91 +1,56 @@
-import numpy as np
+import os
+import random
+from shutil import copyfile
 
-def prepare_train(train_df):
-    y_train = train_df.iloc[:,0].values
-    x_train = train_df.iloc[:,1].values
+def split_data(source, training, validation, train_size=0.85):
+    """
+    Divide los datos en directorios de entrenamiento y validación.
+    """
+    files = []
+    for filename in os.listdir(source):
+        file = os.path.join(source, filename)
+        if os.path.getsize(file) > 0:
+            files.append(filename)
+        else:
+            print(f'{filename} is zero length, so ignoring.')
+    
+    # Calculamos el número de imágenes para entrenamiento y validación
+    train_length = int(len(files) * train_size)
+    val_length = len(files) - train_length
+    
+    # Mezclamos los archivos y dividimos según los cálculos anteriores
+    shuffled_files = random.sample(files, len(files))
+    training_set = shuffled_files[:train_length]
+    validation_set = shuffled_files[train_length:]
+    
+    # Copiamos los archivos a sus nuevos directorios
+    for filename in training_set:
+        this_file = os.path.join(source, filename)
+        destination = os.path.join(training, filename)
+        copyfile(this_file, destination)
+        
+    for filename in validation_set:
+        this_file = os.path.join(source, filename)
+        destination = os.path.join(validation, filename)
+        copyfile(this_file, destination)
 
-    # Tamaño deseado para las imágenes
-    tamaño_deseado = (224, 224)
+# Ruta base de tus datos
+base_dir = 'C:/Users/afvv2/OneDrive/Documentos/Datasets'
+art_styles = ['Barroco', 'Cubismo', 'Expresionismo', 'Impresionismo', 'Realismo', 'Renacimiento', 'Rococo', 'Romanticismo']
 
-    # Lista para almacenar las imágenes procesadas
-    imagenes_procesadas = []
+# Directorios para datos divididos
+train_dir = os.path.join(base_dir, 'train')
+val_dir = os.path.join(base_dir, 'val')
+os.makedirs(train_dir, exist_ok=True)
+os.makedirs(val_dir, exist_ok=True)
 
-    # Iterar sobre cada imagen en x_train
-    for imagen in x_train:
-        # Redimensionar la imagen
-        imagen_redimensionada = imagen.resize(tamaño_deseado)
+# Dividir datos para cada estilo de arte
+for style in art_styles:
+    print(f"Processing {style}")
+    source_dir = os.path.join(base_dir, style)
+    train_style_dir = os.path.join(train_dir, style)
+    val_style_dir = os.path.join(val_dir, style)
+    os.makedirs(train_style_dir, exist_ok=True)
+    os.makedirs(val_style_dir, exist_ok=True)
+    split_data(source_dir, train_style_dir, val_style_dir)
 
-        # Convertir la imagen a un arreglo de NumPy
-        imagen_np = np.array(imagen_redimensionada)
-
-        # Normalizar los valores de píxeles
-        imagen_np = imagen_np.astype('float32') / 255.0
-
-        imagenes_procesadas.append(imagen_np)
-        # Añadir la imagen procesada a la lista
-
-    labels = ['Abstract_Expressionism', 'Action_painting', 'Analytical_Cubism', 'Art_Nouveau_Modern',
-            'Baroque', 'Color_Field_Painting', 'Contemporary_Realism', 'Cubism', 'Early_Renaissance',
-            'Expressionism', 'Fauvism', 'High_Renaissance', 'Impressionism', 'Mannerism_Late_Renaissance',
-            'Minimalism', 'Naive_Art_Primitivism', 'New_Realism', 'Northern_Renaissance', 'Pointillism', 'Pop_Art',
-            'Post_Impressionism', 'Realism', 'Rococo', 'Romanticism', 'Symbolism', 'Synthetic_Cubism', 'Ukiyo_e']
-
-    label_to_index = {label: index for index, label in enumerate(labels)}
-
-    filtered_labels = []
-
-    for path in y_train:
-        label = path.split('/')[9]
-        if label in labels:
-            filtered_labels.append(label_to_index[label])
-
-    # Convertir la lista a un arreglo de NumPy
-    x_train_procesado = np.array(imagenes_procesadas)
-    y_train_procesado = np.array(filtered_labels)
-
-    return x_train_procesado, y_train_procesado
-
-def prepare_validation(validation_df):
-    y_val = validation_df.iloc[:,0].values
-    x_val = validation_df.iloc[:, 1].values
-
-    # Tamaño deseado para las imágenes
-    tamaño_deseado = (224, 224)
-
-    # Lista para almacenar las imágenes procesadas
-    imagenes_procesadas = []
-
-    # Iterar sobre cada imagen en x_train
-    for imagen in x_val:
-        # Redimensionar la imagen
-        imagen_redimensionada = imagen.resize(tamaño_deseado)
-
-        # Convertir la imagen a un arreglo de NumPy
-        imagen_np = np.array(imagen_redimensionada)
-
-        # Normalizar los valores de píxeles
-        imagen_np = imagen_np.astype('float32') / 255.0
-
-        # Añadir la imagen procesada a la lista
-        imagenes_procesadas.append(imagen_np)
-
-    labels = ['Abstract_Expressionism', 'Action_painting', 'Analytical_Cubism', 'Art_Nouveau_Modern',
-            'Baroque', 'Color_Field_Painting', 'Contemporary_Realism', 'Cubism', 'Early_Renaissance',
-            'Expressionism', 'Fauvism', 'High_Renaissance', 'Impressionism', 'Mannerism_Late_Renaissance',
-            'Minimalism', 'Naive_Art_Primitivism', 'New_Realism', 'Northern_Renaissance', 'Pointillism', 'Pop_Art',
-            'Post_Impressionism', 'Realism', 'Rococo', 'Romanticism', 'Symbolism', 'Synthetic_Cubism', 'Ukiyo_e']
-
-    label_to_index = {label: index for index, label in enumerate(labels)}
-
-    filtered_labels = []
-
-    for path in y_val:
-        label = path.split('/')[9]
-        if label in labels:
-            filtered_labels.append(label_to_index[label])
-
-    # Convertir la lista a un arreglo de NumPy
-    x_val_procesado = np.array(imagenes_procesadas)
-    y_val_procesado = np.array(filtered_labels)
-
-    return x_val_procesado,y_val_procesado
