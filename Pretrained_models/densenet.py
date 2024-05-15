@@ -146,7 +146,7 @@ def main():
     criterion = nn.CrossEntropyLoss()
 
     # Carga de datos
-    base_dir = 'C:/Users/afvv2/OneDrive/Documentos/Datasets'
+    base_dir = ''
     train_loader, valid_loader = get_dataloaders(base_dir)
 
     # Entrenamiento y validación

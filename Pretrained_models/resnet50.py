@@ -104,7 +104,7 @@ def validation(model, device, val_loader, criterion):
     print(f'Precision: {precision:.4f}, Recall: {recall:.4f}, F1-score: {f1:.4f}\n')
 
 def main():
-    base_dir = 'C:/Users/afvv2/OneDrive/Documentos/Datasets'  # Ajusta esto a la ruta de tus datos
+    base_dir = ''  # Ajusta esto a la ruta de tus datos
     train_loader, valid_loader = get_dataloaders(base_dir)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
